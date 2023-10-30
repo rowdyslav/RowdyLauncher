@@ -1,4 +1,4 @@
-from PyQt5.QtCore import QThread, pyqtSignal, QSize, Qt
+from PyQt5.QtCore import QThread, pyqtSignal, QSize, Qt, QMetaObject
 from PyQt5.QtWidgets import (
     QWidget,
     QHBoxLayout,
@@ -105,14 +105,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.resize(300, 283)
-        self.centralwidget = QWidget(self)
-
-        self.logo = QLabel(self.centralwidget)
-        self.logo.setMaximumSize(QSize(256, 256))
-        self.logo.setText("")
-        self.logo.setPixmap(QPixmap("assets/title.png"))
-        self.logo.setScaledContents(True)
+        self.setupUi(self)
 
         self.titlespacer = QSpacerItem(
             20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding
@@ -161,6 +154,54 @@ class MainWindow(QMainWindow):
         self.launch_thread.progress_update_signal.connect(self.update_progress)
 
         self.setCentralWidget(self.centralwidget)
+
+    def setupUi(self, MainWindow):
+        MainWindow.setObjectName("MainWindow")
+        MainWindow.resize(305, 305)
+
+        self.centralwidget = QWidget(MainWindow)
+        self.centralwidget.setObjectName("centralwidget")
+        self.horizontalLayout = QHBoxLayout(self.centralwidget)
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        self.verticalLayout = QVBoxLayout()
+        self.verticalLayout.setContentsMargins(15, 15, 15, 15)
+        self.verticalLayout.setObjectName("verticalLayout")
+
+        self.logo = QLabel(self.centralwidget)
+        self.logo.setMaximumSize(QSize(64, 64))
+        self.logo.setText("")
+        self.logo.setPixmap(QPixmap("assets/title.png"))
+        self.logo.setScaledContents(True)
+        self.logo.setObjectName("logo")
+        self.verticalLayout.addWidget(self.logo)
+
+        spacerItem = QSpacerItem(
+            20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding
+        )
+
+        self.verticalLayout.addItem(spacerItem)
+        self.username = QLineEdit(self.centralwidget)
+        self.username.setObjectName("username")
+        self.verticalLayout.addWidget(self.username)
+        self.version_select = QComboBox(self.centralwidget)
+        self.version_select.setObjectName("version_select")
+        self.verticalLayout.addWidget(self.version_select)
+        spacerItem1 = QSpacerItem(
+            20, 20, QSizePolicy.Minimum, QSizePolicy.Minimum
+        )
+        self.verticalLayout.addItem(spacerItem1)
+        self.start_progress = QProgressBar(self.centralwidget)
+        self.start_progress.setProperty("value", 24)
+        self.start_progress.setTextVisible(False)
+        self.start_progress.setObjectName("start_progress")
+        self.verticalLayout.addWidget(self.start_progress)
+        self.start_button = QPushButton(self.centralwidget)
+        self.start_button.setObjectName("start_button")
+        self.verticalLayout.addWidget(self.start_button)
+        self.horizontalLayout.addLayout(self.verticalLayout)
+        MainWindow.setCentralWidget(self.centralwidget)
+
+        QMetaObject.connectSlotsByName(MainWindow)
 
     def state_update(self, value):
         self.start_button.setDisabled(value)

@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(304, 283)
+        MainWindow.resize(305, 305)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.centralwidget)
@@ -29,9 +29,7 @@ class Ui_MainWindow(object):
         self.label.setScaledContents(True)
         self.label.setObjectName("label")
         self.verticalLayout.addWidget(self.label)
-        spacerItem = QtWidgets.QSpacerItem(
-            20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding
-        )
+        spacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.verticalLayout.addItem(spacerItem)
         self.username = QtWidgets.QLineEdit(self.centralwidget)
         self.username.setObjectName("username")
@@ -39,9 +37,7 @@ class Ui_MainWindow(object):
         self.version_select = QtWidgets.QComboBox(self.centralwidget)
         self.version_select.setObjectName("version_select")
         self.verticalLayout.addWidget(self.version_select)
-        spacerItem1 = QtWidgets.QSpacerItem(
-            20, 20, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum
-        )
+        spacerItem1 = QtWidgets.QSpacerItem(20, 20, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
         self.verticalLayout.addItem(spacerItem1)
         self.start_progress = QtWidgets.QProgressBar(self.centralwidget)
         self.start_progress.setProperty("value", 24)
@@ -54,16 +50,18 @@ class Ui_MainWindow(object):
         self.horizontalLayout.addLayout(self.verticalLayout)
         MainWindow.setCentralWidget(self.centralwidget)
 
+        self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
+
+    def retranslateUi(self, MainWindow):
+        _translate = QtCore.QCoreApplication.translate
+        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        self.username.setPlaceholderText(_translate("MainWindow", "Username"))
+        self.start_button.setText(_translate("MainWindow", "Start"))
 
 
 if __name__ == "__main__":
-    QtWidgets.QApplication.setAttribute(
-        QtCore.Qt.ApplicationAttribute.AA_EnableHighDpiScaling, True
-    )
-
     import sys
-
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()
     ui = Ui_MainWindow()
