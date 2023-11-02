@@ -1,7 +1,6 @@
-from PyQt5.QtCore import QThread, pyqtSignal, QSize, Qt, QMetaObject
+from PyQt5.QtCore import QThread, pyqtSignal, QSize, Qt
 from PyQt5.QtWidgets import (
     QWidget,
-    QHBoxLayout,
     QVBoxLayout,
     QLabel,
     QLineEdit,
@@ -14,12 +13,10 @@ from PyQt5.QtWidgets import (
     QMainWindow,
 )
 from PyQt5.QtGui import QPixmap
+from minecraft_launcher_lib.types import FabricMinecraftVersion, MinecraftOptions, MinecraftVersionInfo
 
 from minecraft_launcher_lib import fabric
-
-from minecraft_launcher_lib.types import MinecraftOptions
-
-from minecraft_launcher_lib.utils import get_minecraft_directory, get_version_list
+from minecraft_launcher_lib.utils import get_installed_versions, get_minecraft_directory, get_version_list
 from minecraft_launcher_lib.install import install_minecraft_version
 from minecraft_launcher_lib.command import get_minecraft_command
 
@@ -27,12 +24,13 @@ from random_username.generate import generate_username
 from uuid import uuid1
 
 from subprocess import call
+from sys import argv, exit
 
-minecraft_directory = get_minecraft_directory().replace("minecraft", "mjnlauncher")
-
+minecraft_directory = get_minecraft_directory().replace("minecraft", "rowdylauncher")
+print(get_installed_versions(minecraft_directory))
 
 class LaunchThread(QThread):
-    launch_setup_signal = pyqtSignal(str, str)
+    launch_setup_signal = pyqtSignal(str, dict, str)
     progress_update_signal = pyqtSignal(int, int, str)
     state_update_signal = pyqtSignal(bool)
 
@@ -47,8 +45,9 @@ class LaunchThread(QThread):
         super().__init__()
         self.launch_setup_signal.connect(self.launch_setup)
 
-    def launch_setup(self, version_id, username):
-        self.version_id = version_id
+    def launch_setup(self, version_name: str, version_dict: MinecraftVersionInfo | FabricMinecraftVersion, username: str):
+        self.version_name = version_name
+        self.version_dict = version_dict
         self.username = username
 
     def update_progress_label(self, value):
@@ -72,15 +71,26 @@ class LaunchThread(QThread):
     def run(self):
         self.state_update_signal.emit(True)
 
-        install_minecraft_version(
-            versionid=self.version_id,
-            minecraft_directory=minecraft_directory,
-            callback={
-                "setStatus": self.update_progress_label,
-                "setProgress": self.update_progress,
-                "setMax": self.update_progress_max,
-            },
-        )
+        if "Fabric" in self.version_name:
+            fabric.install_fabric(
+                minecraft_version=self.version_dict["version"],
+                minecraft_directory=minecraft_directory,
+                callback={
+                    "setStatus": self.update_progress_label,
+                    "setProgress": self.update_progress,
+                    "setMax": self.update_progress_max,
+                },
+            )
+        else:
+            install_minecraft_version(
+                versionid=self.version_dict["id"],
+                minecraft_directory=minecraft_directory,
+                callback={
+                    "setStatus": self.update_progress_label,
+                    "setProgress": self.update_progress,
+                    "setMax": self.update_progress_max,
+                },
+            )
 
         if self.username == "":
             self.username = generate_username()[0]
@@ -93,19 +103,25 @@ class LaunchThread(QThread):
 
         call(
             get_minecraft_command(
-                version=self.version_id,
+                version=self.version_dict.get("id") or self.version_dict.get("version"),
                 minecraft_directory=minecraft_directory,
                 options=options,
             )
         )
         self.state_update_signal.emit(False)
 
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setupUi(self)
+        self.resize(512, 512)
+        self.centralwidget = QWidget(self)
+
+        self.logo = QLabel(self.centralwidget)
+        self.logo.setMaximumSize(QSize(256, 256))
+        self.logo.setText("")
+        self.logo.setPixmap(QPixmap("assets/title.png"))
+        self.logo.setScaledContents(True)
 
         self.titlespacer = QSpacerItem(
             20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding
@@ -118,9 +134,9 @@ class MainWindow(QMainWindow):
 
         for v, f in zip(get_version_list(), fabric.get_all_minecraft_versions()):
             if v["type"] == "release":
-                self.version_select.addItem(f"Vanilla {v.get("id")}")
+                self.version_select.addItem(f"Vanilla {v.get("id")}", v)
             if f["stable"] == True:
-                self.version_select.addItem(f"Fabric {f.get("version")}")
+                self.version_select.addItem(f"Fabric {f.get("version")}", f)
 
         self.progress_spacer = QSpacerItem(
             20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum
@@ -136,7 +152,7 @@ class MainWindow(QMainWindow):
 
         self.start_button = QPushButton(self.centralwidget)
         self.start_button.setText("Play")
-        self.start_button.clicked.connect(self.launch_game)
+        self.start_button.clicked.connect(self.launch_game) #type: ignore
 
         self.vertical_layout = QVBoxLayout(self.centralwidget)
         self.vertical_layout.setContentsMargins(15, 15, 15, 15)
@@ -155,54 +171,6 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(self.centralwidget)
 
-    def setupUi(self, MainWindow):
-        MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(305, 305)
-
-        self.centralwidget = QWidget(MainWindow)
-        self.centralwidget.setObjectName("centralwidget")
-        self.horizontalLayout = QHBoxLayout(self.centralwidget)
-        self.horizontalLayout.setObjectName("horizontalLayout")
-        self.verticalLayout = QVBoxLayout()
-        self.verticalLayout.setContentsMargins(15, 15, 15, 15)
-        self.verticalLayout.setObjectName("verticalLayout")
-
-        self.logo = QLabel(self.centralwidget)
-        self.logo.setMaximumSize(QSize(64, 64))
-        self.logo.setText("")
-        self.logo.setPixmap(QPixmap("assets/title.png"))
-        self.logo.setScaledContents(True)
-        self.logo.setObjectName("logo")
-        self.verticalLayout.addWidget(self.logo)
-
-        spacerItem = QSpacerItem(
-            20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding
-        )
-
-        self.verticalLayout.addItem(spacerItem)
-        self.username = QLineEdit(self.centralwidget)
-        self.username.setObjectName("username")
-        self.verticalLayout.addWidget(self.username)
-        self.version_select = QComboBox(self.centralwidget)
-        self.version_select.setObjectName("version_select")
-        self.verticalLayout.addWidget(self.version_select)
-        spacerItem1 = QSpacerItem(
-            20, 20, QSizePolicy.Minimum, QSizePolicy.Minimum
-        )
-        self.verticalLayout.addItem(spacerItem1)
-        self.start_progress = QProgressBar(self.centralwidget)
-        self.start_progress.setProperty("value", 24)
-        self.start_progress.setTextVisible(False)
-        self.start_progress.setObjectName("start_progress")
-        self.verticalLayout.addWidget(self.start_progress)
-        self.start_button = QPushButton(self.centralwidget)
-        self.start_button.setObjectName("start_button")
-        self.verticalLayout.addWidget(self.start_button)
-        self.horizontalLayout.addLayout(self.verticalLayout)
-        MainWindow.setCentralWidget(self.centralwidget)
-
-        QMetaObject.connectSlotsByName(MainWindow)
-
     def state_update(self, value):
         self.start_button.setDisabled(value)
         self.start_progress_label.setVisible(value)
@@ -215,18 +183,16 @@ class MainWindow(QMainWindow):
 
     def launch_game(self):
         self.launch_thread.launch_setup_signal.emit(
-            self.version_select.currentText(), self.username.text()
+            self.version_select.currentText(), self.version_select.currentData(), self.username.text()
         )
         self.launch_thread.start()
 
 
 if __name__ == "__main__":
-    import sys
-
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_EnableHighDpiScaling, True)
 
-    app = QApplication(sys.argv)
+    app = QApplication(argv)
     window = MainWindow()
     window.show()
 
-    sys.exit(app.exec_())
+    exit(app.exec_())
