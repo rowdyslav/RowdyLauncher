@@ -1,0 +1,1 @@
+        # self.setCentralWidget(self.centralwidget)
