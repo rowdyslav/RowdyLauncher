@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (
     QMainWindow,
 )
 from PyQt5.QtGui import QPixmap
-from minecraft_launcher_lib.types import FabricMinecraftVersion, MinecraftOptions, MinecraftVersionInfo
+from minecraft_launcher_lib.types import MinecraftOptions
 
 from minecraft_launcher_lib import fabric
 from minecraft_launcher_lib.utils import get_installed_versions, get_minecraft_directory, get_version_list
@@ -43,7 +43,7 @@ class LaunchThread(QThread):
         super().__init__()
         self.launch_setup_signal.connect(self.launch_setup)
 
-    def launch_setup(self, version_name: str, version_dict: MinecraftVersionInfo | FabricMinecraftVersion, login: str):
+    def launch_setup(self, version_name: str, version_dict, login: str):
         self.version_name = version_name
         self.version_dict = version_dict
         self.login = login
@@ -97,7 +97,7 @@ class LaunchThread(QThread):
             )
 
         options: MinecraftOptions = {
-            "login": self.login,
+            "username": self.login,
             "uuid": str(uuid1()),
             "token": "",
         }
