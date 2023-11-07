@@ -1,1 +1,0 @@
-pyuic -x design.ui -o design.py
