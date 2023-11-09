@@ -1,3 +1,4 @@
+from sys import version
 from PyQt5.QtCore import QThread, pyqtSignal, Qt
 from PyQt5.QtWidgets import (
     QWidget,
@@ -19,11 +20,12 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QPixmap
 
+from typing import Union
 from minecraft_launcher_lib import fabric
 from minecraft_launcher_lib.types import (
+    FabricMinecraftVersion,
     MinecraftOptions,
     MinecraftVersionInfo,
-    FabricMinecraftVersion,
 )
 from minecraft_launcher_lib.utils import (
     get_installed_versions,
@@ -32,13 +34,13 @@ from minecraft_launcher_lib.utils import (
 )
 from minecraft_launcher_lib.install import install_minecraft_version
 from minecraft_launcher_lib.command import get_minecraft_command
-
 from uuid import uuid1
 from subprocess import call
 
-from utils import auth
-from db_loader import DB_CONN, DB_CURSOR
+from utils import auth, update_stats
+from db_loader import DB_CURSOR
 
+from icecream import ic
 
 # pyright: reportOptionalMemberAccess=false
 LAUNCHER_DIR = get_minecraft_directory().replace("minecraft", "rowdylauncher")
@@ -48,6 +50,13 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.initUI()
+        try:
+            with open(f"{LAUNCHER_DIR}/.temp.dat", "rb") as f:
+                lines = f.readlines()
+                self.login.setText(lines[0].decode().strip())
+                self.password.setText(lines[1].decode().strip())
+        except FileNotFoundError:
+            pass
 
     def initUI(self):
         self.resize(512, 512)
@@ -76,14 +85,14 @@ class MainWindow(QMainWindow):
 
         self.version_select = QComboBox(self.centralwidget)
         vanilla_versions = [
-            (f"Vanilla {v['id']}", v)
-            for v in get_version_list()
-            if v["type"] == "release"
+            (f"Vanilla {vanilla_version['id']}", vanilla_version)
+            for vanilla_version in get_version_list()
+            if vanilla_version["type"] == "release"
         ]
         fabric_versions = [
-            (f"Fabric {f['version']}", f)
-            for f in fabric.get_all_minecraft_versions()
-            if f["stable"]
+            (f"Fabric {fabric_version['version']}", fabric_version)
+            for fabric_version in fabric.get_all_minecraft_versions()
+            if fabric_version["stable"]
         ]
         all_versions = zip(vanilla_versions, fabric_versions)
         for v, f in all_versions:
@@ -146,37 +155,15 @@ class MainWindow(QMainWindow):
 
         log, authed = auth(self.login.text(), self.password.text())
         self.status_bar.showMessage(log)
-        if not authed:
+        if authed:
+            with open(f"{LAUNCHER_DIR}/.temp.dat", "wb") as f:
+                f.write(str.encode(f"{self.login.text()}\n{self.password.text()}"))
+        else:
             return
 
-        DB_CURSOR.execute(
-            "SELECT * FROM stats WHERE version=?", (self.version_select.currentText(),)
-        )
-        version_stats = DB_CURSOR.fetchone()
-        if version_stats is None:
-            release = self.version_select.currentData().get("releaseTime")
-            if not release:
-                release = f"as Vanilla {self.version_select.currentText().split()[-1]}"
-            else:
-                release = release.strftime("%d.%m.%Y")
+        update_stats(self.version_select)
 
-            DB_CURSOR.execute(
-                "INSERT INTO stats VALUES (?, ?, ?)",
-                (
-                    self.version_select.currentText(),
-                    1,
-                    release,
-                ),
-            )
-        else:
-            DB_CURSOR.execute(
-                "UPDATE stats SET launches = launches + 1 WHERE version=?",
-                (self.version_select.currentText(),),
-            )
-
-        DB_CONN.commit()
-
-        # Запуск
+        # Запуск LaunchThread
         self.login.setReadOnly(True)
         self.password.setReadOnly(True)
 
@@ -193,6 +180,8 @@ class MainWindow(QMainWindow):
 
 
 class LaunchThread(QThread):
+    """Класс поток, запускающий игру, отображающий прогресс"""
+
     LAUNCH_SETUP_SIGNAL = pyqtSignal(str, dict, str)
     PROGRESS_UPDATE_SIGNAL = pyqtSignal(int, int, str)
     STATE_UPDATE_SIGNAL = pyqtSignal(bool)
@@ -208,13 +197,18 @@ class LaunchThread(QThread):
         super().__init__()
         self.LAUNCH_SETUP_SIGNAL.connect(self.launch_setup)
 
-    def launch_setup(self, version_name: str, version_dict, login: str):
+    def launch_setup(
+        self,
+        version_name: str,
+        version_dict: Union[MinecraftVersionInfo, FabricMinecraftVersion],
+        login: str,
+    ):
         self.version_name = version_name
         self.version_dict = version_dict
         self.login = login
 
     def update_progress_label(self, value):
-        self.progress_label = value
+        self.PROGRESS_LABEL = value
         self.PROGRESS_UPDATE_SIGNAL.emit(
             self.PROGRESS, self.PROGRESS_MAX, self.PROGRESS_LABEL
         )
@@ -232,11 +226,13 @@ class LaunchThread(QThread):
         )
 
     def run(self):
+        """Установка и запуск версии майнкрафта"""
+
         self.STATE_UPDATE_SIGNAL.emit(True)
 
         if "Fabric" in self.version_name:
             fabric.install_fabric(
-                minecraft_version=self.version_dict["version"],
+                minecraft_version=self.version_dict["version"],  # type: ignore
                 minecraft_directory=LAUNCHER_DIR,
                 callback={
                     "setStatus": self.update_progress_label,
@@ -244,14 +240,12 @@ class LaunchThread(QThread):
                     "setMax": self.update_progress_max,
                 },
             )
-
-            installed_versions = get_installed_versions(LAUNCHER_DIR)
-            v = installed_versions[0]["id"]
-
+            for x in get_installed_versions(LAUNCHER_DIR):
+                if x["id"].split("-")[-1] == self.version_dict["version"]:  # type: ignore
+                    version = x["id"]
         else:
-            v = self.version_dict["id"]
             install_minecraft_version(
-                versionid=self.version_dict["id"],
+                versionid=self.version_dict["id"],  # type: ignore
                 minecraft_directory=LAUNCHER_DIR,
                 callback={
                     "setStatus": self.update_progress_label,
@@ -259,6 +253,7 @@ class LaunchThread(QThread):
                     "setMax": self.update_progress_max,
                 },
             )
+            version = self.version_dict["id"]  # type: ignore
 
         options: MinecraftOptions = {
             "username": self.login,
@@ -266,9 +261,11 @@ class LaunchThread(QThread):
             "token": "",
         }
 
+        ic(options)
+
         call(
             get_minecraft_command(
-                version=v,
+                version=version,  # type: ignore
                 minecraft_directory=LAUNCHER_DIR,
                 options=options,
             )
@@ -277,6 +274,8 @@ class LaunchThread(QThread):
 
 
 class StatsWindow(QMainWindow):
+    """Окно просмотра статистики"""
+
     def __init__(self):
         super().__init__()
         self.initUI()
@@ -318,6 +317,8 @@ class StatsWindow(QMainWindow):
         self.stats_layout.addWidget(self.stats_table)
 
     def refresh(self):
+        """Обновление таблицы из дб"""
+
         DB_CURSOR.execute("SELECT * FROM stats")
         all_stats = DB_CURSOR.fetchall()
 
@@ -328,6 +329,8 @@ class StatsWindow(QMainWindow):
             self.stats_table.setItem(i, 2, QTableWidgetItem(str(stat[2])))
 
     def filterVersions(self):
+        """Функция для поиска из дб"""
+
         search_text = self.search_input.text().strip().lower()
         DB_CURSOR.execute(
             "SELECT * FROM stats WHERE version LIKE ?", ("%" + search_text + "%",)
