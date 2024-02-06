@@ -1,46 +1,28 @@
-from sys import version
-from PyQt5.QtCore import QThread, pyqtSignal, Qt
-from PyQt5.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QLabel,
-    QLineEdit,
-    QComboBox,
-    QSpacerItem,
-    QSizePolicy,
-    QProgressBar,
-    QPushButton,
-    QApplication,
-    QMainWindow,
-    QStatusBar,
-    QTableWidget,
-    QTableWidgetItem,
-    QAbstractItemView,
-    QHeaderView,
-)
-from PyQt5.QtGui import QPixmap
-
-from typing import Union
-from minecraft_launcher_lib import fabric
-from minecraft_launcher_lib.types import (
-    FabricMinecraftVersion,
-    MinecraftOptions,
-    MinecraftVersionInfo,
-)
-from minecraft_launcher_lib.utils import (
-    get_installed_versions,
-    get_minecraft_directory,
-    get_version_list,
-)
-from minecraft_launcher_lib.install import install_minecraft_version
-from minecraft_launcher_lib.command import get_minecraft_command
-from uuid import uuid1
 from subprocess import call
-
-from utils import auth, update_stats
-from db_loader import DB_CURSOR
+from sys import version
+from typing import Union
+from uuid import uuid1
 
 from icecream import ic
+from minecraft_launcher_lib import fabric
+from minecraft_launcher_lib.command import get_minecraft_command
+from minecraft_launcher_lib.install import install_minecraft_version
+from minecraft_launcher_lib.types import (FabricMinecraftVersion,
+                                          MinecraftOptions,
+                                          MinecraftVersionInfo)
+from minecraft_launcher_lib.utils import (get_installed_versions,
+                                          get_minecraft_directory,
+                                          get_version_list)
+from PyQt5.QtCore import Qt, QThread, pyqtSignal
+from PyQt5.QtGui import QPixmap
+from PyQt5.QtWidgets import (QAbstractItemView, QApplication, QComboBox,
+                             QHeaderView, QLabel, QLineEdit, QMainWindow,
+                             QProgressBar, QPushButton, QSizePolicy,
+                             QSpacerItem, QStatusBar, QTableWidget,
+                             QTableWidgetItem, QVBoxLayout, QWidget)
+
+from db_loader import DB_CURSOR
+from utils import auth, update_stats
 
 # pyright: reportOptionalMemberAccess=false
 LAUNCHER_DIR = get_minecraft_directory().replace("minecraft", "rowdylauncher")
