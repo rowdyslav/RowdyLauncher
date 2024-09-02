@@ -138,8 +138,11 @@ class MainWindow(QMainWindow):
         log, authed = auth(self.login.text(), self.password.text())
         self.status_bar.showMessage(log)
         if authed:
-            with open(f"{LAUNCHER_DIR}/.temp.dat", "wb") as f:
-                f.write(str.encode(f"{self.login.text()}\n{self.password.text()}"))
+            try:
+                with open(f"{LAUNCHER_DIR}/.temp.dat", "wb") as f:
+                    f.write(str.encode(f"{self.login.text()}\n{self.password.text()}"))
+            except FileNotFoundError:
+                pass
         else:
             return
 
